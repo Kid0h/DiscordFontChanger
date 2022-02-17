@@ -1,4 +1,4 @@
-# DiscordFontChanger 📜:
+# DiscordFontChanger 📜
 ### A tiny tool for quickly changing Discord's font!
 
 # Usage

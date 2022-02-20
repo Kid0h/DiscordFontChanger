@@ -40,12 +40,13 @@ int main(int argc, char* argv[]) {
     // }
 
     /* Get neccesarry paths */
-    // Module base
     bool discord_found = false;
+    bool module_found = false;
     std::error_code ec;
     std::filesystem::path executable_path, module_base, module_path, index_path;
     module_base = std::filesystem::temp_directory_path(ec).parent_path().parent_path() /= "Discord";
 
+    // Discord path
     DEBUG_LOG(std::cout << "Searching Discord's path..");
     if (!std::filesystem::exists(module_base, ec)) {  }
     for (auto& dir : std::filesystem::directory_iterator(module_base, ec)) {
@@ -56,19 +57,40 @@ int main(int argc, char* argv[]) {
         }
     }
     if (discord_found) {
+        DEBUG_LOG(std::cout << " found!" << std::endl);
         // Executable path
         executable_path /= "Discord.exe";
 
         // Module directory
-        DEBUG_LOG(std::cout << " found!" << std::endl);
-        module_base /= "modules"; module_base /= "discord_voice-5"; module_base /= "discord_voice"; module_base /= "node_modules"; module_base /= "signal-exit";
+        module_base /= "modules";
     } else {
         DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's path"; }
         return -1;
     }
 
+    // Module path
+    DEBUG_LOG(std::cout << "Searching target module path..");
+    for (auto& dir : std::filesystem::directory_iterator(module_base, ec)) {
+        if (dir.is_directory() && dir.path().filename().wstring().rfind(L"discord_voice", 0) == 0) {
+            module_found = true;    
+            module_base = dir.path(); module_base /= "discord_voice"; module_base /= "node_modules"; module_base /= "signal-exit";
+        }
+    }
+    if (module_found) {
+        DEBUG_LOG(std::cout << " found!" << std::endl);
+    } else {
+        DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's module path"; }
+        return -1;
+    }
+
     index_path = module_base; index_path /= "index.js"; // Index path
     module_path = module_base; module_path /= FONT_MODULE_FILENAME; // Module path
+
+    // Sanity check
+    if (!std::filesystem::exists(index_path, ec)) {
+        std::cout << "Could not find Discord's module entry path, is Discord installed?" << std::endl;
+        return -1;
+    }
 
     /* Font Module */
     // Create/Delete Font module

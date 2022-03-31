@@ -6,10 +6,9 @@ To use **DiscordFontChanger** you'll just need to download latest binary from th
 **DiscordFontChanger** Has no setup/installation steps and is built with simplicity in mind.
 
 Changing fonts is as easy as follows:
-```cmd
+```bash
 DiscordFontChanger.exe "Ubuntu Mono"
 ```
-> Note: this tool currently support Windows only.
 
 # Building from source
 **DiscordFontChanger** has no dependencies and could be compiled "out of the box" with C++-17 enabled.

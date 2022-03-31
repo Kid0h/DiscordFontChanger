@@ -1,7 +1,14 @@
-
 #include <iostream>
+#include <string>
+#include <string.h>
 #include <fstream>
 #include <filesystem>
+
+#ifdef __linux__
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#endif
 
 #include "font_module.h"
 
@@ -43,28 +50,34 @@ int main(int argc, char* argv[]) {
     bool discord_found = false;
     bool module_found = false;
     std::error_code ec;
-    std::filesystem::path executable_path, module_base, module_path, index_path;
+    std::filesystem::path module_base, module_path, index_path;
+    #ifdef WIN32
     module_base = std::filesystem::temp_directory_path(ec).parent_path().parent_path() /= "Discord";
+    #elif __linux__
+    struct passwd *pw = getpwuid(getuid());
+    module_base = std::string(pw->pw_dir) + "/.config/discord";
+    #endif
 
     // Discord path
     DEBUG_LOG(std::cout << "Searching Discord's path..");
     if (!std::filesystem::exists(module_base, ec)) {  }
     for (auto& dir : std::filesystem::directory_iterator(module_base, ec)) {
+        #ifdef WIN32
         if (dir.is_directory() && dir.path().filename().wstring().rfind(L"app-1", 0) == 0) {
+        #elif __linux__
+        if (dir.is_directory() && dir.path().filename().wstring().rfind(L"0.", 0) == 0) {
+        #endif
             discord_found = true;
-            executable_path = module_base = dir.path();
+            module_base = dir.path();
             break;
         }
     }
     if (discord_found) {
         DEBUG_LOG(std::cout << " found!" << std::endl);
-        // Executable path
-        executable_path /= "Discord.exe";
-
         // Module directory
         module_base /= "modules";
     } else {
-        DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's path"; }
+        DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's path" << std::endl; }
         return -1;
     }
 
@@ -72,14 +85,19 @@ int main(int argc, char* argv[]) {
     DEBUG_LOG(std::cout << "Searching target module path..");
     for (auto& dir : std::filesystem::directory_iterator(module_base, ec)) {
         if (dir.is_directory() && dir.path().filename().wstring().rfind(L"discord_voice", 0) == 0) {
-            module_found = true;    
+            module_found = true;
+            #ifdef WIN32
             module_base = dir.path(); module_base /= "discord_voice"; module_base /= "node_modules"; module_base /= "signal-exit";
+            #elif __linux__
+            module_base /= "discord_voice"; module_base /= "node_modules"; module_base /= "signal-exit";
+            #endif
+            break;
         }
     }
     if (module_found) {
         DEBUG_LOG(std::cout << " found!" << std::endl);
     } else {
-        DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's module path"; }
+        DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's module path" << std::endl; }
         return -1;
     }
 
@@ -201,7 +219,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* Restart Discord */
-    std::cout << "Restart Discord to apply changes!";
+    std::cout << "Restart Discord to apply changes!" << std::endl;
 
     return 0;
 }

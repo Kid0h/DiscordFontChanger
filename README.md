@@ -9,6 +9,12 @@ Changing fonts is as easy as follows:
 ```bash
 DiscordFontChanger.exe "Ubuntu Mono"
 ```
+If you have different Discord clients, you can target a specific one using the `-c` or `--client` option:
+```bash
+DiscordFontChanger.exe --client stable "Ubuntu Mono"
+DiscordFontChanger.exe --client canary "Ubuntu Mono"
+DiscordFontChanger.exe --client ptb "Ubuntu Mono"
+```
 
 # Building from source
 **DiscordFontChanger** has no dependencies and could be compiled "out of the box" with C++-17 enabled.

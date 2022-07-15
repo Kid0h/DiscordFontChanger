@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
     if (module_found) {
         DEBUG_LOG(std::cout << " found!" << std::endl);
     } else {
-        DEBUG_LOG(std::cout << " not found, is Discord installed?" << std::endl) else { std::cout << "Could not find Discord's module path" << std::endl; }
+        DEBUG_LOG(std::cout << " not found, is " << client_name << " installed?" << std::endl) else { std::cout << "Could not find " << client_name << "'s module path" << std::endl; }
         return -1;
     }
 
@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
 
     // Sanity check
     if (!std::filesystem::exists(index_path, ec)) {
-        std::cout << "Could not find Discord's module entry path, is Discord installed?" << std::endl;
+        std::cout << "Could not find " << client_name << "'s module entry path, is " << client_name << " installed?" << std::endl;
         return -1;
     }
 
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
 
     /* Module injection/ejection */
     // Check if already injected
-    DEBUG_LOG(std::cout << "Searching Discord for injected font module..");
+    DEBUG_LOG(std::cout << "Searching " << client_name << " for injected font module..");
     bool already_injected = false;
     size_t inject_pos_start, inject_pos_end; {
         inject_pos_start    = std::string::npos;
@@ -231,7 +231,6 @@ int main(int argc, char* argv[]) {
             
             std::filesystem::remove(index_path, ec);
             std::filesystem::rename(temp_index, index_path, ec);
-
         } else {
             DEBUG_LOG(std::cout << ", nothing to eject." << std::endl);
         }
@@ -252,7 +251,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* Restart Discord */
-    std::cout << "Restart Discord to apply changes!" << std::endl;
+    std::cout << "Restart " << client_name << " to apply changes!" << std::endl;
 
     return 0;
 }

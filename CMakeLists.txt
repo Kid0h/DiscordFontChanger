@@ -12,7 +12,7 @@ if (WIN32)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
 endif()
 
-# Linux no-pie
+# Fix Ubuntu no-pie
 if (NOT WIN32 AND (UNIX AND NOT APPLE))
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
 endif()

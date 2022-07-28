@@ -17,7 +17,7 @@ DiscordFontChanger.exe --client ptb "Ubuntu Mono"
 ```
 
 # Building from source
-**DiscordFontChanger** has no dependencies and could be compiled "out of the box" with C++-17 (needed for <filesystem>) enabled.
+**DiscordFontChanger** has no dependencies and could be compiled "out of the box" with C++-17 (needed for \<filesystem\>) enabled.
 First thing you'll need to do is clone the repository to your local machine:
 ```sh
 git clone https://github.com/Kid0h/DiscordFontChanger

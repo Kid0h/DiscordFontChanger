@@ -23,16 +23,9 @@ If you want to reset Discord's font back to the default, just click the `Reset` 
 <img src="media/reset.png"/>
 
 # Building from source
-<<<<<<< HEAD
 First thing you'll need to do is clone the repository to your machine using `--recursive` to clone the needed submodules too:
 ```bash
 git clone --recursive https://github.com/Kid0h/DiscordFontChanger
-=======
-**DiscordFontChanger** has no dependencies and could be compiled "out of the box" with C++-17 (needed for \<filesystem\>) enabled.
-First thing you'll need to do is clone the repository to your local machine:
-```sh
-git clone https://github.com/Kid0h/DiscordFontChanger
->>>>>>> 0566a95943481796b3536894f3e2efaf4553f678
 cd DiscordFontChanger
 ```
 Use the CMake script (`CMakeLists.txt`) provided with the tool to easily compile it using CMake:

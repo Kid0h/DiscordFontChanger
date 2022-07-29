@@ -1,19 +1,20 @@
 #pragma once
+
 #define FONT_MODULE_FILENAME "custom_font.js"
 
 /* Inject code */
-const char* inject_code_start = 
+static const char* inject_code_start = 
 "// Font Module [start]";
 
-const char* inject_code =
+static const char* inject_code =
 "const custom_font = require('./custom_font.js');\n"
 "custom_font.enable();";
 
-const char* inject_code_end = 
+static const char* inject_code_end = 
 "// Font Module [end]";
 
 /* Font module code */
-const char* font_module =
+static const char* font_module =
 "\n"
 "function enable() {\n"
 "    var all = document.getElementsByTagName(\"*\");\n"

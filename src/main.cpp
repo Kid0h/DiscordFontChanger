@@ -1,300 +1,268 @@
 #include <iostream>
 #include <string>
-#include <string.h>
-#include <fstream>
-#include <filesystem>
 
-#ifdef __linux__
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #endif
 
-#include "font_module.h"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
-#define DEBUG_LOG(x) if (debug) { x; std::flush(std::cout); }
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
 
-void usage();
-bool find_discord_core(std::filesystem::path& discord_path);
-const char* type_type_to_name(const char* client);
+#include "imgui.h"
 
+#include "api.h"
+
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 480
+
+// GLFW error callback
+static void glfw_error_callback(int error, const char *description) {
+    return;
+}
+static void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+
+#ifdef WIN32
+int APIENTRY WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+#else
 int main(int argc, char* argv[]) {
-    bool debug = false;
-    bool reset = false;
-    std::string client_name;
-    const char* client = nullptr;
-    const char* font = nullptr;
+#endif
+    bool debug      = false;
+    bool reset      = false;
+    char client[7]  = { 0 };
+    std::string font_name; font_name.resize(255);
 
-    // Arguments
-    if (argc < 2) { usage(); return -1; }
-    for (int i = 1; i < argc; ++i) {
-        // Client
-        if (strcmp(argv[i], "--client") == 0 || strcmp(argv[i], "-c") == 0) {
-            if ((i == (argc - 1)) || (i == (argc - 2))) { usage(); return -1; }
-            client = argv[++i];
-        }
-        // Reset
-        else if (strcmp(argv[i], "--reset") == 0 || strcmp(argv[i], "-r") == 0) {
-            reset = true;
-        }
-        // Debug
-        else if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
-            if (i == argc) { usage(); return -1; }
-            debug = true;
-        }
-        // Help / Usage
-        else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) { usage(); return 0; }
-        else if (i == (argc - 1)) { font = argv[i]; }
-        else { usage(); return -1; }
-    }
+    // GLFW Setup
+    glfwSetErrorCallback(glfw_error_callback);
+    glfwInit();
 
-    /* Get neccesarry paths */
-    bool discord_found = false;
-    bool module_found = false;
-    std::error_code ec;
-    std::filesystem::path module_base, module_path, index_path;
-    #ifdef WIN32
-    module_base = std::filesystem::temp_directory_path(ec).parent_path().parent_path();
-    #elif __linux__
-    struct passwd *pw = getpwuid(getuid());
-    module_base = std::string(pw->pw_dir) + "/.config";
+    // Window settings
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
+    // glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
+    /* OpenGL + GLSL versions */
+    const char* glsl_version = "#version 330";
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    #if defined(__APPLE__)
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     #endif
 
-    // Discord client
-    client_name = type_type_to_name(client);
-    if (client_name.length() == 0) {
-        std::cout << "ERROR: Invalid client type.\n";
-        usage();
+    // Create & use window
+    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    GLFWwindow* window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Discord Font Changer", NULL, NULL);
+    if (!window) {
         return -1;
-    }
-    DEBUG_LOG(std::cout << "Searching for " << client_name << "..");
-    for (uint16_t i = 0; i < 3; ++i) {
-        std::string name;
-        std::filesystem::path base = module_base;
-        bool force = client;
+    } glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-        if ((force && (strcmp(client, "stable") == 0)) || (!force && i == 0)) { // Discord
-            if (!force) { name = type_type_to_name("stable"); }
-            #ifdef WIN32
-            base /= "Discord";
-            #elif __linux__
-            base /= "discord";
-            #endif
-        } else if ((force && (strcmp(client, "canary") == 0)) || (!force && i == 1)) { // Discord Canary
-            if (!force) { name = type_type_to_name("canary"); }
-            #ifdef WIN32
-            base /= "DiscordCanary";
-            #elif __linux__
-            base /= "discordcanary";
-            #endif
-        } else if ((force && (strcmp(client, "ptb") == 0)) || (!force && i == 2)) { // Discord PTB
-            if (!force) { name = type_type_to_name("ptb"); }
-            #ifdef WIN32
-            base /= "DiscordPTB";
-            #elif __linux__
-            base /= "discordptb";
-            #endif
-        }
+    // VSync
+    glfwSwapInterval(1);
 
-        if (std::filesystem::exists(base) && find_discord_core(base)) {
-            discord_found = true;
-            module_base = base;
-            module_base /= "modules";
-            if (!force) { client_name = name; }
-            break;
-        } else if (force) { // Force specific client
-            break;
-        }
-    }
-    if (discord_found) {
-        DEBUG_LOG(std::cout << " found " << client_name << "!" << std::endl);
-        // Module directory
-    } else {
-        DEBUG_LOG(std::cout << " not found, is " << client_name << " installed?" << std::endl) else { std::cout << "Could not find " << client_name << ", is it installed?" << std::endl; }
-        return -1;
-    }
+    // Load OpenGL
+    gladLoadGL();
 
-    // Module path
-    DEBUG_LOG(std::cout << "Searching target module path..");
-    for (auto& dir : std::filesystem::directory_iterator(module_base, ec)) {
-        if (dir.is_directory() && dir.path().filename().wstring().rfind(L"discord_voice", 0) == 0) {
-            module_found = true;
-            #ifdef WIN32
-            module_base = dir.path(); module_base /= "discord_voice"; module_base /= "node_modules"; module_base /= "signal-exit";
-            #elif __linux__
-            module_base /= "discord_voice"; module_base /= "node_modules"; module_base /= "signal-exit";
-            #endif
-            break;
-        }
-    }
-    if (module_found) {
-        DEBUG_LOG(std::cout << " found!" << std::endl);
-    } else {
-        DEBUG_LOG(std::cout << " not found, is " << client_name << " installed?" << std::endl) else { std::cout << "Could not find " << client_name << "'s module path" << std::endl; }
-        return -1;
-    }
+    // ImGui setup
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    ImGuiStyle& style = ImGui::GetStyle();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.IniFilename = nullptr; io.LogFilename = nullptr;
 
-    index_path = module_base; index_path /= "index.js"; // Index path
-    module_path = module_base; module_path /= FONT_MODULE_FILENAME; // Module path
+    // ImGui style
+    ImGui::StyleColorsDark();
 
-    // Sanity check
-    if (!std::filesystem::exists(index_path, ec)) {
-        std::cout << "Could not find " << client_name << "'s module entry path, is " << client_name << " installed?" << std::endl;
-        return -1;
-    }
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init(glsl_version);
 
-    /* Font Module */
-    // Create/Delete Font module
-    bool font_module_exists = std::filesystem::exists(module_path, ec);
-    if (!reset) {
-        DEBUG_LOG(std::cout << ( font_module_exists ? "Editing" : "Creating") << " custom font module.." << std::endl);
-        std::fstream f(module_path, std::ios::out | std::ios::trunc);
-        if (f.is_open()) {
-            f << "var font = \""; f << font << "\";\n";
-            f << font_module;
-        } f.close();
-    }
-    else {
-        if (font_module_exists) {
-            std::filesystem::remove(module_path, ec);
-        } DEBUG_LOG(std::cout << "Deleted font module" << std::endl);
-    }
+    // Main window size
+    bool main_window_size_good = false;
+    ImVec2 main_window_size = ImVec2(0.0f, 0.0f);
 
-    /* Module injection/ejection */
-    // Check if already injected
-    DEBUG_LOG(std::cout << "Searching " << client_name << " for injected font module..");
-    bool already_injected = false;
-    size_t inject_pos_start, inject_pos_end; {
-        inject_pos_start    = std::string::npos;
-        inject_pos_end      = std::string::npos;
-        std::ifstream f_i(index_path, std::ios::in);
-        if (f_i.is_open()) {
-            size_t inject_start_line_len = strlen(inject_code_start);
-            size_t inject_end_line_len = strlen(inject_code_end);
-            size_t max_line_len = std::max(inject_start_line_len, inject_end_line_len);
+    // Main loop
+    while (!glfwWindowShouldClose(window)) {
+        // Clear
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-            size_t line_num = 0;
-            char* line = (char*)calloc(max_line_len + 1, sizeof(char)); 
-            while (true) {
-                // Get line
-                f_i.getline(line, max_line_len + 1);
-                if (!f_i.fail()) { line_num++; }
-                
-                // Inject start sig
-                if (strcmp(line, inject_code_start) == 0) {
-                    inject_pos_start = line_num;
-                }
-                // Inject end sig
-                else if (strcmp(line, inject_code_end) == 0) {
-                    inject_pos_end = line_num;
-                }
+        // Poll for event
+        glfwPollEvents();
 
-                // Stop reading if got to end
-                if (f_i.eof()) {
+        // ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // Main window
+        {
+            // ImGui::SetNextWindowPos(ImVec2(0.0f, menu_bar_size.y));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, {380.0f,69.0f});
+            ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+            ImGui::SetNextWindowBgAlpha(0.85f);
+            if (main_window_size_good) { ImGui::SetNextWindowSize(main_window_size); }
+
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+            ImGui::Begin("main", nullptr,
+                ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar |
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | 
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoScrollWithMouse
+            );
+
+            // Status
+            static std::string status_text = "Unchaged.";
+            enum StatusColor {
+                normal,
+                gray,
+                green,
+                red
+            } static status_color = StatusColor::gray;
+
+            {
+                ImGui::Text("Status:"); ImGui::SameLine();
+                static ImVec4 text_color = ImVec4();
+                switch (status_color)
+                {
+                case StatusColor::normal:
+                    text_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
                     break;
-                } f_i.clear();
-            }
-            if (inject_pos_start != std::string::npos && inject_pos_end != std::string::npos) {
-                DEBUG_LOG(std::cout << " found!";);
-                already_injected = true;
-            } else {
-                DEBUG_LOG(std::cout << " not found");
-            }
-            free(line);
-        } f_i.close();
-    }
+                
+                case StatusColor::gray:
+                    text_color = ImVec4(0.5f, 0.5f, 0.5f, 1.0f);
+                    break;
+                    
+                case StatusColor::green:
+                    text_color = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
+                    break;
 
-    // Eject module
-    if (reset) {
-        if (already_injected) {
-            // Copy file but add only original lines (without font module)
-            std::filesystem::path temp_index = index_path.wstring() + L".tmp";
+                case StatusColor::red:
+                    text_color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
+                    break;
 
-            DEBUG_LOG(std::cout << " ejecting.." << std::endl);
-            std::ifstream f_i(index_path);
-            std::ofstream f_o(temp_index, std::ios::out);
-
-            char c;
-            size_t line_num = 1;
-            while (f_i.get(c)) {
-                if (c == '\n') {
-                    line_num++;
+                default:
+                    text_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+                    break;
                 }
 
-                if (line_num < inject_pos_start || line_num > inject_pos_end) {
-                    f_o << c;
+                ImGui::TextColored(text_color, "%s", status_text.c_str());
+            }
+
+            // Client type
+            static bool auto_selected           = true;
+            {
+                static bool stable_selected         = false;
+                static bool canary_selected         = false;
+                static bool ptb_selected            = false;
+                static bool client_type_menu_open   = false;
+                static bool want_open               = false;
+                static std::string client_type_name = "Automatic";
+                
+                ImGui::Text("Client:");
+                ImGui::SameLine();
+                if (ImGui::BeginMenu(client_type_name.c_str(), &client_type_menu_open)) {
+                    if (ImGui::MenuItem("Automatic", nullptr, &auto_selected)) {
+                        client_type_name = "Automatic";
+                        stable_selected = false;
+                        canary_selected = false;
+                        ptb_selected    = false;
+                        if (!auto_selected) { auto_selected = true; }
+                        strcpy(client, "");
+                    } if (ImGui::MenuItem("Stable", nullptr, &stable_selected)) {
+                        client_type_name = "Stable";
+                        canary_selected = false;
+                        ptb_selected    = false;
+                        auto_selected   = false;
+                        if (!stable_selected) { stable_selected = true; }
+                        strcpy(client, "stable");
+                    } if (ImGui::MenuItem("Canary", nullptr, &canary_selected)) {
+                        client_type_name = "Canary";
+                        stable_selected = false;
+                        ptb_selected    = false;
+                        auto_selected   = false;
+                        if (!canary_selected) { canary_selected = true; }
+                        strcpy(client, "canary");
+                    } if (ImGui::MenuItem("PTB", nullptr, &ptb_selected)) {
+                        client_type_name = "PTB";
+                        stable_selected = false;
+                        canary_selected = false;
+                        auto_selected   = false;
+                        if (!ptb_selected) { ptb_selected = true; }
+                        strcpy(client, "ptb");
+                    }
+                    ImGui::EndMenu();
                 }
             }
 
-            f_o.close();
-            f_i.close();
-            
-            std::filesystem::remove(index_path, ec);
-            std::filesystem::rename(temp_index, index_path, ec);
-        } else {
-            DEBUG_LOG(std::cout << ", nothing to eject." << std::endl);
+            // Profile input
+            bool triggered = false;
+            ImGui::Text("%s", "Font:");
+            ImGui::SameLine();
+            bool text_triggered = ImGui::InputText("##font_text_input", font_name.data(), font_name.capacity(), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::SameLine();
+            bool change_button_triggered = ImGui::Button("Change");
+            ImGui::SameLine();
+            ImGui::PushItemWidth(-1.0f);
+            bool reset_button_triggered = ImGui::Button("Reset");
+            ImGui::PopItemWidth();
+
+            static bool success = false;
+            static std::string message;
+            if ((triggered = reset_button_triggered || change_button_triggered || text_triggered)) {
+                // Change font
+                std::stringstream output;
+                if (API::change(font_name.c_str(), (auto_selected ? nullptr : client), output, reset_button_triggered)) {
+                    status_color = StatusColor::green;
+                } else {
+                    status_color = StatusColor::red;
+                } status_text = output.str();
+            }
+
+            // Determine OS window size
+            static size_t frame_num = 0;
+            if (!main_window_size_good) {
+                frame_num++;
+            }
+            if (!main_window_size_good && frame_num == 2) {
+                main_window_size_good = true;
+                main_window_size = ImGui::GetWindowSize();
+                // main_window_size.y += menu_bar_size.y;
+
+                glfwSetWindowSize(window, (int)main_window_size.x, (int)main_window_size.y); // Resize
+                glfwShowWindow(window); // Show window
+            }
+
+            ImGui::End();
+            ImGui::PopStyleVar(3);
         }
-        std::cout << "Font has been reset!" << std::endl;
-    }
-    // Inject module
-    else {
-        if (!already_injected) {
-            DEBUG_LOG(std::cout << ", injecting.." << std::endl);
-            std::fstream f(index_path, std::ios::app);
-            if (f.is_open()) {
-                f << "\n";
-                f << inject_code_start << "\n";
-                f << inject_code << "\n";
-                f << inject_code_end;
-            } f.close();
-        } std::cout << "Font changed!" << std::endl;
+
+        // ImGui render
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Present
+        glfwSwapBuffers(window);
     }
 
-    /* Restart Discord */
-    std::cout << "Restart " << client_name << " to apply changes!" << std::endl;
+    // Cleanup
+    /* ImGui */
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+
+    /* GLFW */
+    glfwDestroyWindow(window);
+    glfwTerminate();
 
     return 0;
-}
-
-void usage() {
-    std::cout << "Usage: DiscordFontChanger.exe"
-    << " [options] <font>" << "\n"
-    << "  -c, --client      Target a specific Discord client (stable, canary, ptb)\n"
-    << "  -r, --reset       Reset Discord's font to the default\n"
-    << "  -d, --debug       Enable debug messages\n"
-    << "  -h, --help        Disaply this help message"
-    << std::endl;
-}
-
-bool find_discord_core(std::filesystem::path& discord_path) {
-    std::error_code ec;
-    bool found = false;
-
-    for (auto& dir : std::filesystem::directory_iterator(discord_path, ec)) {
-        #ifdef WIN32
-        if (dir.is_directory() && dir.path().filename().wstring().rfind(L"app-1", 0) == 0) {
-        #elif __linux__
-        if (dir.is_directory() && dir.path().filename().wstring().rfind(L"0.", 0) == 0) {
-        #endif
-            found = true;
-            discord_path = dir.path();
-            break;
-        }
-    }
-
-    return found;
-}
-
-const char* type_type_to_name(const char* client) {
-    if (!client || strcmp(client, "stable") == 0) {
-        return "Discord";
-    }
-    else if (strcmp(client, "canary") == 0) {
-        return "Discord Canary";
-    }
-    else if (strcmp(client, "ptb") == 0) {
-        return "Discord PTB";
-    }
-
-    return "";
 }
